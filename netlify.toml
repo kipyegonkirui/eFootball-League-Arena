@@ -1,0 +1,9 @@
+[build]
+  # The Netlify (nitro) build writes static client assets to dist/ and the SSR
+  # server function to .netlify/functions-internal.
+  publish = "dist"
+
+[build.environment]
+  # Supabase URL, project ID and publishable (anon) key are public by design and
+  # are intentionally inlined into the client bundle by Vite.
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,SUPABASE_PROJECT_ID,VITE_SUPABASE_URL,VITE_SUPABASE_PUBLISHABLE_KEY,VITE_SUPABASE_PROJECT_ID"
