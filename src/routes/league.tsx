@@ -6,7 +6,7 @@ import { Pill, RoundResults, StandingsTable } from "@/components/league-views";
 import { SeasonArchive, SeasonResultsDialog } from "@/components/season-viewer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageShell } from "@/components/site";
-import { FORMAT_LABEL, formatKes, useLiveTournament, type Prize } from "@/lib/tournament";
+import { FORMAT_LABEL, formatKes, publicTournamentQuery, useLiveTournament, type Prize } from "@/lib/tournament";
 import {
   buildRows, groupLetter, groupTable, overallTable, publicLeagueQuery, seasonComplete, useLiveFixtures,
   type Winner,
@@ -32,34 +32,46 @@ function LeaguePage() {
   useLiveTournament();
   useLiveFixtures();
   const [seasonSel, setSeasonSel] = useState<number | undefined>(undefined);
-  const lg = useQuery(publicLeagueQuery(seasonSel));
+  const first = useQuery(publicLeagueQuery(seasonSel));
+  const tour = useQuery(publicTournamentQuery);
+  // Ended seasons live under "Previous seasons". When no season is running the server falls back to the latest
+  // ended one, so show the season that is open for sign-ups instead.
+  const firstEnded = seasonSel === undefined && first.data?.season.status === "completed";
+  const signupSeason = tour.data?.season_number ?? undefined;
+  const fallback = useQuery({ ...publicLeagueQuery(signupSeason), enabled: firstEnded && signupSeason !== undefined });
+  const useFallback = firstEnded && signupSeason !== undefined;
+  const resolving = firstEnded && tour.isLoading;
+  const lg = useFallback ? fallback : first;
   const [view, setView] = useState<View>("overall");
   const [tab, setTab] = useState<"table" | "fixtures">("table");
   const [archiveSeason, setArchiveSeason] = useState<number | null>(null);
 
-  const data = lg.data ?? null;
+  const data = resolving ? null : (lg.data ?? null);
+  const liveSeasons = (data?.seasons ?? []).filter((s) => s.status !== "completed");
   const groups = data?.groups ?? [];
   const fixtures = data?.fixtures ?? [];
   const rows = useMemo(() => buildRows(groups, fixtures), [groups, fixtures]);
   const names = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
   const done = seasonComplete(fixtures);
   const played = fixtures.filter((x) => x.status === "confirmed").length;
-  const loading = lg.isLoading;
+  const loading = lg.isLoading || resolving;
   const completed = data?.season.status === "completed";
+  const signingUp = data?.season.status === "registration";
 
   return (
     <PageShell kicker={data ? `Season ${data.season.number}` : "League"} title="Table & Fixtures">
-      {(data?.seasons.length ?? 0) > 1 && (
+      {liveSeasons.length > 1 && (
         <div className="mb-4 flex flex-wrap gap-2">
-          {data!.seasons.map((s) => (
+          {liveSeasons.map((s) => (
             <Pill key={s.number} active={data!.season.number === s.number} onClick={() => { setSeasonSel(s.number); setView("overall"); }}>
-              Season {s.number}{s.status === "completed" ? " · ended" : " · live"}
+              Season {s.number} · live
             </Pill>
           ))}
         </div>
       )}
       <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         {completed ? <span className="rounded-full border border-border px-3 py-1 text-xs font-bold uppercase">Season ended{data?.season.ended_at ? ` · ${new Date(data.season.ended_at).toLocaleDateString("en-KE", { day: "numeric", month: "short", year: "numeric" })}` : ""}</span>
+          : signingUp ? <span className="rounded-full border border-primary/40 px-3 py-1 text-xs font-bold uppercase text-primary">Sign-ups open</span>
           : <span className="inline-flex items-center gap-2 text-primary"><Radio className="h-4 w-4 animate-pulse" /> Live</span>}
         {fixtures.length > 0 && <span>{played} of {fixtures.length} matches played</span>}
       </div>
