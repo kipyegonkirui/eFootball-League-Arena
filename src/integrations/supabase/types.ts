@@ -384,6 +384,7 @@ export type Database = {
       admin_create_trial_codes: { Args: { _count: number; _hours: number; _label: string; _max_uses?: number }; Returns: Json }
       admin_list_trial_codes: { Args: never; Returns: Json }
       admin_revoke_trial_code: { Args: { _code: string }; Returns: Json }
+      admin_remove_player: { Args: { _reason: string; _registration_id: string }; Returns: Json }
       get_public_fixtures: { Args: never; Returns: Json }
       raise_dispute: {
         Args: { _fixture_id: string; _note: string; _phone: string; _reference: string }

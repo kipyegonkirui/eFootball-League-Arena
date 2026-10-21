@@ -52,7 +52,7 @@ function AdminPage() {
   return <Dashboard />;
 }
 
-type Reg = { seasons: { number: number; status: string } | null; efootball_id: string | null; team_name: string | null; id: string; reference: string; gamer_tag: string; full_name: string; phone: string; email: string | null; platform: string; status: string; slot_number: number | null; created_at: string; tournament_groups: { group_number: number } | null; payment_submissions: { method?: string; transaction_code: string; amount_kes: number; expected_fee_kes: number; screenshot_path: string | null; payer_phone: string }[] };
+type Reg = { seasons: { number: number; status: string } | null; efootball_id: string | null; team_name: string | null; id: string; reference: string; gamer_tag: string; full_name: string; phone: string; email: string | null; platform: string; status: string; slot_number: number | null; created_at: string; tournament_groups: { group_number: number } | null; payment_submissions: { method?: string; transaction_code: string; amount_kes: number; expected_fee_kes: number; screenshot_path: string | null; payer_phone: string }[]; verification_audit: { decision: string; reason: string | null; created_at: string }[] };
 
 function Dashboard() {
   const dialogs = useDialogs();
@@ -63,7 +63,7 @@ function Dashboard() {
   const regs = useQuery({
     queryKey: ["admin-regs"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("registrations").select("*, seasons(number, status), tournament_groups(group_number), payment_submissions(method, transaction_code, amount_kes, expected_fee_kes, screenshot_path, payer_phone)").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("registrations").select("*, seasons(number, status), tournament_groups(group_number), payment_submissions(method, transaction_code, amount_kes, expected_fee_kes, screenshot_path, payer_phone), verification_audit(decision, reason, created_at)").order("created_at", { ascending: false });
       if (error) throw error;
       return data as unknown as Reg[];
     },
@@ -73,7 +73,26 @@ function Dashboard() {
   // Cards and open slots describe the season that is open for sign-ups; older seasons stay in the table below.
   const verified = all.filter((r) => r.status === "verified" && r.seasons?.status === "registration");
   const collected = verified.reduce((s, r) => s + (r.payment_submissions[0]?.amount_kes ?? 0), 0);
-  const refresh = () => { qc.invalidateQueries({ queryKey: ["admin-regs"] }); qc.invalidateQueries({ queryKey: ["public-tournament"] }); qc.invalidateQueries({ queryKey: ["admin-settings"] }); };
+  const refresh = () => { for (const k of ["admin-regs", "public-tournament", "admin-settings", "admin-league", "public-league"]) qc.invalidateQueries({ queryKey: [k] }); };
+
+  async function removePlayer(r: Reg) {
+    const spot = r.tournament_groups ? `Group ${String.fromCharCode(64 + r.tournament_groups.group_number)}, slot ${r.slot_number}` : "their slot";
+    const reason = await dialogs.prompt({
+      title: `Remove ${r.gamer_tag}?`,
+      description: `${spot} opens up again for another player. ${r.gamer_tag} is shown as removed on the status page with this reason, and can register again if needed.`,
+      label: "Reason for removal",
+      placeholder: "e.g. Test player, or no longer able to play",
+      confirmLabel: "Remove player",
+      tone: "danger",
+      minLength: 3,
+    });
+    if (reason === null) return;
+    const { error } = await supabase.rpc("admin_remove_player", { _registration_id: r.id, _reason: reason });
+    if (error) { toast.error(friendlyError(error)); return; }
+    toast.success(`${r.gamer_tag} removed. ${spot} is open again.`);
+    refresh();
+  }
+  const removalReason = (r: Reg) => r.status === "rejected" ? [...(r.verification_audit ?? [])].sort((x, y) => y.created_at.localeCompare(x.created_at))[0]?.reason ?? null : null;
 
   async function decide(id: string, decision: "verified" | "rejected") {
     let reason: string | null = null;
@@ -135,11 +154,13 @@ function Dashboard() {
       </div>
       <div className="panel mt-4 overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="text-left text-muted-foreground"><tr><th className="p-3">Tag</th><th>Season</th><th>Ref</th><th>Status</th><th>Group/Slot</th><th>Code</th></tr></thead>
-          <tbody>{shown.map((r) => (
-            <tr key={r.id} className="border-t border-border"><td className="p-3 font-semibold">{r.gamer_tag}</td><td>{r.seasons ? `S${r.seasons.number}` : "—"}</td><td>{r.reference}</td><td><StatusBadge status={r.status} /></td>
-              <td>{r.tournament_groups ? `${String.fromCharCode(64 + r.tournament_groups.group_number)} / ${r.slot_number}` : "—"}</td><td>{r.payment_submissions[0]?.method === "free_trial" ? <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">Free trial</span> : r.payment_submissions[0]?.transaction_code}</td></tr>
-          ))}</tbody>
+          <thead className="text-left text-muted-foreground"><tr><th className="p-3">Tag</th><th>Season</th><th>Ref</th><th>Status</th><th>Group/Slot</th><th>Code</th><th /></tr></thead>
+          <tbody>{shown.map((r) => { const why = removalReason(r); return (
+            <tr key={r.id} className="border-t border-border"><td className="p-3 font-semibold">{r.gamer_tag}</td><td>{r.seasons ? `S${r.seasons.number}` : "—"}</td><td>{r.reference}</td>
+              <td><StatusBadge status={r.status} />{why && <span className="block max-w-[220px] truncate text-xs text-muted-foreground" title={why}>{why}</span>}</td>
+              <td>{r.tournament_groups ? `${String.fromCharCode(64 + r.tournament_groups.group_number)} / ${r.slot_number}` : "—"}</td><td>{r.payment_submissions[0]?.method === "free_trial" ? <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">Free trial</span> : r.payment_submissions[0]?.transaction_code}</td>
+              <td className="whitespace-nowrap pr-3 text-right">{r.status === "verified" && r.seasons?.status === "registration" && <Button size="sm" variant="destructive" onClick={() => removePlayer(r)}>Remove</Button>}</td></tr>
+          ); })}</tbody>
         </table>
       </div>
 
