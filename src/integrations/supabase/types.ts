@@ -381,6 +381,9 @@ export type Database = {
       prize_breakdown: { Args: { _season?: string }; Returns: Json }
       get_public_league: { Args: { _season?: number }; Returns: Json }
       admin_end_season: { Args: { _season: number }; Returns: Json }
+      admin_create_trial_codes: { Args: { _count: number; _hours: number; _label: string; _max_uses?: number }; Returns: Json }
+      admin_list_trial_codes: { Args: never; Returns: Json }
+      admin_revoke_trial_code: { Args: { _code: string }; Returns: Json }
       get_public_fixtures: { Args: never; Returns: Json }
       raise_dispute: {
         Args: { _fixture_id: string; _note: string; _phone: string; _reference: string }

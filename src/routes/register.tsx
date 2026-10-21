@@ -31,12 +31,14 @@ function RegisterPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [donePhone, setDonePhone] = useState("");
+  const [trialInfo, setTrialInfo] = useState<{ group: number; slot: number } | null>(null);
 
   if (done)
     return (
-      <PageShell kicker="Submitted" title="You're in the queue">
+      <PageShell kicker={trialInfo ? "Confirmed" : "Submitted"} title={trialInfo ? "You're in!" : "You're in the queue"}>
         <div className="panel max-w-lg space-y-4 p-6">
-          <StatusBadge status="pending" />
+          <StatusBadge status={trialInfo ? "verified" : "pending"} />
+          {trialInfo && <p className="rounded-lg bg-primary/10 p-3 text-sm"><b>Free trial confirmed.</b> You are in Group {String.fromCharCode(64 + trialInfo.group)}, slot {trialInfo.slot}. No payment is needed.</p>}
           <div>
             <p className="text-sm text-muted-foreground">Your reference</p>
             <p className="font-display text-4xl font-bold tracking-wide text-primary">{done}</p>
@@ -48,7 +50,7 @@ function RegisterPage() {
           <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
             <li>We saved this on this phone, so Check status opens already filled in.</li>
             <li>On another device, use this reference, your M-Pesa code or your eFootball username, together with the phone number {donePhone || "you registered with"}.</li>
-            <li>Your seat is NOT reserved until an organiser verifies your M-Pesa payment.</li>
+            {!trialInfo && <li>Your seat is NOT reserved until an organiser verifies your M-Pesa payment.</li>}
           </ul>
           <Button asChild variant="hero"><Link to="/status" search={{ ref: done }}>Check status now</Link></Button>
         </div>
@@ -81,11 +83,13 @@ function RegisterPage() {
         _payer_phone: String(f.get("payer_phone") || ""), _screenshot_path: path as string,
       });
       if (error) throw error;
-      const reference = (data as { reference: string }).reference;
+      const res = data as unknown as { reference: string; status: string; free_trial?: boolean; group_number?: number; slot_number?: number };
+      const reference = res.reference;
+      if (res.free_trial && res.group_number && res.slot_number) setTrialInfo({ group: res.group_number, slot: res.slot_number });
       saveMine({ ref: reference, phone: String(f.get("phone")) });
       setDonePhone(String(f.get("phone")));
       setDone(reference);
-      toast.success("Submitted — awaiting payment verification");
+      toast.success(res.free_trial ? "Free trial confirmed. You're in!" : "Submitted — awaiting payment verification");
     } catch (err) {
       toast.error(friendlyError(err));
     } finally {
@@ -122,8 +126,8 @@ function RegisterPage() {
           <hr className="border-border" />
           <h2 className="text-2xl font-bold uppercase">Payment proof</h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <F label="M-Pesa transaction code"><Input name="code" required maxLength={10} placeholder="SJK4XXXXXX" className="h-11 uppercase" /></F>
-            <F label="Amount paid (KES)"><Input name="amount" required type="number" inputMode="numeric" defaultValue={t?.fee_kes} className="h-11" /></F>
+            <F label="M-Pesa transaction code (or free trial code)"><Input name="code" required maxLength={24} placeholder="SJK4XXXXXX or FT-XXXX-XXXX-XXXX" autoComplete="off" className="h-11 uppercase" /></F>
+            <F label="Amount paid (KES, ignore for a free trial)"><Input name="amount" type="number" inputMode="numeric" defaultValue={t?.fee_kes} className="h-11" /></F>
           </div>
           <F label="Phone that paid (if different)"><Input name="payer_phone" inputMode="tel" className="h-11" /></F>
           <F label="Screenshot (optional)"><Input name="screenshot" type="file" accept="image/png,image/jpeg,image/webp" /></F>
@@ -147,6 +151,7 @@ function RegisterPage() {
             <li>Copy the 10-character code from the confirmation SMS into the form.</li>
           </ol>
           <p className="text-xs text-muted-foreground">Your slot is confirmed only after an organiser checks the payment. We never see or ask for your PIN.</p>
+          <p className="rounded-lg border border-border p-3 text-xs text-muted-foreground"><b className="text-foreground">Have a free trial code?</b> Skip the payment and paste the code in the transaction code box. You are confirmed straight away.</p>
         </aside>
       </div>
     </PageShell>

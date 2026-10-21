@@ -52,7 +52,7 @@ function AdminPage() {
   return <Dashboard />;
 }
 
-type Reg = { seasons: { number: number; status: string } | null; efootball_id: string | null; team_name: string | null; id: string; reference: string; gamer_tag: string; full_name: string; phone: string; email: string | null; platform: string; status: string; slot_number: number | null; created_at: string; tournament_groups: { group_number: number } | null; payment_submissions: { transaction_code: string; amount_kes: number; expected_fee_kes: number; screenshot_path: string | null; payer_phone: string }[] };
+type Reg = { seasons: { number: number; status: string } | null; efootball_id: string | null; team_name: string | null; id: string; reference: string; gamer_tag: string; full_name: string; phone: string; email: string | null; platform: string; status: string; slot_number: number | null; created_at: string; tournament_groups: { group_number: number } | null; payment_submissions: { method?: string; transaction_code: string; amount_kes: number; expected_fee_kes: number; screenshot_path: string | null; payer_phone: string }[] };
 
 function Dashboard() {
   const dialogs = useDialogs();
@@ -63,7 +63,7 @@ function Dashboard() {
   const regs = useQuery({
     queryKey: ["admin-regs"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("registrations").select("*, seasons(number, status), tournament_groups(group_number), payment_submissions(transaction_code, amount_kes, expected_fee_kes, screenshot_path, payer_phone)").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("registrations").select("*, seasons(number, status), tournament_groups(group_number), payment_submissions(method, transaction_code, amount_kes, expected_fee_kes, screenshot_path, payer_phone)").order("created_at", { ascending: false });
       if (error) throw error;
       return data as unknown as Reg[];
     },
@@ -126,6 +126,8 @@ function Dashboard() {
         ); })}
       </div>
 
+      <FreeTrialAdmin />
+
       <div className="mt-10 flex flex-wrap items-center gap-3">
         <h2 className="text-3xl font-bold uppercase">All registrations</h2>
         <Input placeholder="Search…" value={filter} onChange={(e) => setFilter(e.target.value)} className="h-10 max-w-xs" />
@@ -136,7 +138,7 @@ function Dashboard() {
           <thead className="text-left text-muted-foreground"><tr><th className="p-3">Tag</th><th>Season</th><th>Ref</th><th>Status</th><th>Group/Slot</th><th>Code</th></tr></thead>
           <tbody>{shown.map((r) => (
             <tr key={r.id} className="border-t border-border"><td className="p-3 font-semibold">{r.gamer_tag}</td><td>{r.seasons ? `S${r.seasons.number}` : "—"}</td><td>{r.reference}</td><td><StatusBadge status={r.status} /></td>
-              <td>{r.tournament_groups ? `${String.fromCharCode(64 + r.tournament_groups.group_number)} / ${r.slot_number}` : "—"}</td><td>{r.payment_submissions[0]?.transaction_code}</td></tr>
+              <td>{r.tournament_groups ? `${String.fromCharCode(64 + r.tournament_groups.group_number)} / ${r.slot_number}` : "—"}</td><td>{r.payment_submissions[0]?.method === "free_trial" ? <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">Free trial</span> : r.payment_submissions[0]?.transaction_code}</td></tr>
           ))}</tbody>
         </table>
       </div>
@@ -471,5 +473,139 @@ function DisputeCard({ d, onResolve }: { d: ADispute; onResolve: (d: ADispute, h
         <Button size="sm" variant="destructive" onClick={() => onResolve(d, h, a, note, true)}>Void &amp; replay</Button>
       </div>
     </div>
+  );
+}
+
+type TrialCode = { code: string; label: string | null; max_uses: number; uses: number; status: "active" | "used" | "expired" | "cancelled"; expires_at: string; created_at: string; used_by: string[] };
+const EXPIRY_OPTIONS = [
+  { label: "24 hours", hours: 24 },
+  { label: "3 days", hours: 72 },
+  { label: "7 days", hours: 168 },
+  { label: "14 days", hours: 336 },
+  { label: "30 days", hours: 720 },
+];
+const fmtDate = (iso: string) => new Date(iso).toLocaleString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+function FreeTrialAdmin() {
+  const qc = useQueryClient();
+  const dialogs = useDialogs();
+  const [count, setCount] = useState("1");
+  const [label, setLabel] = useState("");
+  const [hours, setHours] = useState("168");
+  const [maxUses, setMaxUses] = useState("1");
+  const [busy, setBusy] = useState(false);
+  const [fresh, setFresh] = useState<{ codes: string[]; expires_at: string; max_uses: number } | null>(null);
+  const list = useQuery({
+    queryKey: ["admin-trials"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_list_trial_codes");
+      if (error) throw error;
+      return data as unknown as TrialCode[];
+    },
+  });
+  const codes = list.data ?? [];
+  const active = codes.filter((c) => c.status === "active").length;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+  function message(code: string, expires: string, max = 1) {
+    return `Your free trial code for eFootball Arena Kenya: ${code}\nValid until ${fmtDate(expires)}. Open ${origin}/register, fill in your details and paste this code in the "M-Pesa transaction code" box. No payment needed. ${max > 1 ? `This code works for up to ${max} players, each with their own registration. First come, first served.` : "It works once."}`;
+  }
+  async function copy(text: string, ok = "Copied") {
+    try { await navigator.clipboard.writeText(text); toast.success(ok); } catch { toast.error("Couldn't copy. Select and copy it manually."); }
+  }
+  async function generate() {
+    const n = Number(count);
+    if (!Number.isInteger(n) || n < 1 || n > 50) return toast.error("Enter a quantity from 1 to 50.");
+    const m = Number(maxUses);
+    if (!Number.isInteger(m) || m < 1 || m > 50) return toast.error("Players per code must be from 1 to 50.");
+    setBusy(true);
+    const { data, error } = await supabase.rpc("admin_create_trial_codes", { _count: n, _label: label, _hours: Number(hours), _max_uses: m });
+    setBusy(false);
+    if (error) return toast.error(friendlyError(error));
+    const r = data as unknown as { codes: { code: string }[]; expires_at: string; max_uses: number };
+    setFresh({ codes: r.codes.map((c) => c.code), expires_at: r.expires_at, max_uses: r.max_uses });
+    setLabel("");
+    qc.invalidateQueries({ queryKey: ["admin-trials"] });
+  }
+  async function cancel(c: TrialCode) {
+    const go = await dialogs.confirm({
+      title: "Cancel this code?",
+      description: `${c.code}${c.label ? ` (${c.label})` : ""} will stop working immediately. This cannot be undone.`,
+      confirmLabel: "Cancel code",
+      tone: "danger",
+    });
+    if (!go) return;
+    const { error } = await supabase.rpc("admin_revoke_trial_code", { _code: c.code });
+    if (error) return toast.error(friendlyError(error));
+    toast.success("Code cancelled");
+    qc.invalidateQueries({ queryKey: ["admin-trials"] });
+  }
+
+  const badge = (s: TrialCode["status"]) =>
+    s === "active" ? "bg-primary/15 text-primary" : s === "used" ? "bg-accent/20 text-accent" : "bg-muted text-muted-foreground";
+
+  return (
+    <section className="mt-10">
+      <h2 className="text-3xl font-bold uppercase">Free trial codes</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Give a code to a player. They paste it in the M-Pesa code box when registering and are confirmed straight away with KES 0 recorded. Each code works once, expires on its own, and can be cancelled while unused.
+      </p>
+
+      <div className="panel mt-4 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-[90px_130px_1fr_160px_auto] lg:items-end">
+        <div className="space-y-1.5"><Label>Codes</Label><Input type="number" min={1} max={50} value={count} onChange={(e) => setCount(e.target.value)} className="h-11" /></div>
+        <div className="space-y-1.5"><Label>Players per code</Label><Input type="number" min={1} max={50} value={maxUses} onChange={(e) => setMaxUses(e.target.value)} className="h-11" /></div>
+        <div className="space-y-1.5"><Label>Label (who it's for, optional)</Label><Input value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Brian, campus group" className="h-11" /></div>
+        <div className="space-y-1.5">
+          <Label>Expires in</Label>
+          <select value={hours} onChange={(e) => setHours(e.target.value)} className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm">
+            {EXPIRY_OPTIONS.map((o) => <option key={o.hours} value={o.hours}>{o.label}</option>)}
+          </select>
+        </div>
+        <Button variant="hero" className="h-11" onClick={generate} disabled={busy}>{busy ? "Generating…" : "Generate code"}</Button>
+        <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">Players per code: <b>1</b> for one player, or up to <b>50</b> for a group code that several players can use (each registers separately, first come first served). Group codes stop working when the places are used up, when they expire, or when you cancel them.</p>
+      </div>
+
+      {fresh && (
+        <div className="panel mt-4 border-primary p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="font-display text-xl font-bold uppercase text-primary">New {fresh.codes.length === 1 ? "code" : `codes (${fresh.codes.length})`} · {fresh.max_uses === 1 ? "1 player each" : `${fresh.max_uses} players each`} · valid until {fmtDate(fresh.expires_at)}</p>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => copy(fresh.codes.join("\n"), fresh.codes.length === 1 ? "Code copied" : "All codes copied")}>Copy {fresh.codes.length === 1 ? "code" : "all"}</Button>
+              <Button size="sm" variant="outline" onClick={() => copy(fresh.codes.map((c) => message(c, fresh.expires_at, fresh.max_uses)).join("\n\n"), "Message copied")}>Copy WhatsApp message</Button>
+              <Button size="sm" variant="ghost" onClick={() => setFresh(null)}>Dismiss</Button>
+            </div>
+          </div>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            {fresh.codes.map((c) => <li key={c} className="rounded-md bg-muted px-3 py-2 font-mono text-base font-bold tracking-wider">{c}</li>)}
+          </ul>
+        </div>
+      )}
+
+      <div className="panel mt-4 overflow-x-auto">
+        <div className="border-b border-border px-4 py-2 text-xs text-muted-foreground">{active} active · {codes.length} total</div>
+        {codes.length === 0 && !list.isLoading && <p className="p-4 text-sm text-muted-foreground">No codes yet.</p>}
+        {list.error && <p className="p-4 text-sm text-destructive">Couldn't load the codes.</p>}
+        {codes.length > 0 && (
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="text-left text-xs uppercase text-muted-foreground"><tr><th className="p-3">Code</th><th>Label</th><th>Used</th><th>Status</th><th>Expires</th><th /></tr></thead>
+            <tbody>
+              {codes.map((c) => (
+                <tr key={c.code} className="border-t border-border">
+                  <td className="p-3 font-mono font-bold tracking-wide">{c.code}</td>
+                  <td className="text-muted-foreground">{c.label ?? "—"}</td>
+                  <td className="text-muted-foreground"><b className="text-foreground">{c.uses}</b> of {c.max_uses}{c.used_by.length > 0 && <span className="block max-w-[220px] truncate text-xs" title={c.used_by.join(", ")}>{c.used_by.join(", ")}</span>}</td>
+                  <td><span className={"rounded-full px-2 py-0.5 text-xs font-semibold capitalize " + badge(c.status)}>{c.status === "used" ? "fully used" : c.status}</span></td>
+                  <td className="text-muted-foreground">{fmtDate(c.expires_at)}</td>
+                  <td className="space-x-2 whitespace-nowrap pr-3 text-right">
+                    {c.status === "active" && <Button size="sm" variant="outline" onClick={() => copy(message(c.code, c.expires_at, c.max_uses), "Message copied")}>Copy message</Button>}
+                    {c.status === "active" && <Button size="sm" variant="destructive" onClick={() => cancel(c)}>Cancel</Button>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </section>
   );
 }

@@ -96,6 +96,7 @@ function RulesPage() {
           <ul>
             <li>The entry fee is paid per season. Pay the entry fee by M-Pesa Send Money to the number shown on the registration page, then enter the transaction code. <b>We never ask for your M-Pesa PIN.</b></li>
             <li>Your slot is confirmed only after an organiser verifies your payment. Registration alone does not hold a slot.</li>
+            <li><b>Free trial codes</b> are given out by the organiser. A code works for one player, or for a limited number of players if it is a group code, and it expires. Each player registers separately. A valid code confirms your slot without payment. An expired, cancelled or already used code is refused.</li>
             <li><b>Full refund</b> if: your payment could not be matched and your slot was never confirmed, you paid but the tournament was full (we refund or move you to the waitlist, your choice), or the organiser cancels the tournament before it starts.</li>
             <li><b>No refund</b> once your slot is confirmed and the tournament has started, or if you are removed for breaking these rules.</li>
             <li>Refunds are sent to the paying M-Pesa number within <b>7 days</b> of the request.</li>
