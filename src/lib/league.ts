@@ -115,3 +115,36 @@ export function seasonComplete(fixtures: Fixture[]) {
 }
 
 export const groupLetter = (n: number) => String.fromCharCode(64 + n);
+
+/** One of a player's own fixtures, as returned by lookup_registration. */
+export type MyFixture = { id: string; round: number; is_home: boolean; opponent: string; opponent_team: string | null; home_score: number | null; away_score: number | null; status: "scheduled" | "confirmed" | "disputed"; my_dispute_open: boolean };
+export type MyRegistration = {
+  season_number?: number | null; season_status?: string | null; reference: string; gamer_tag: string; team_name: string | null; status: string;
+  group_number: number | null; slot_number: number | null; reason: string | null; phone_hint: string; fixtures: MyFixture[];
+};
+
+export type RoundDeadline = { round: number; due_at: string };
+
+/** Round deadlines for a season, as a map of round -> ISO time. Empty if none are set (or the feature isn't installed yet). */
+export const roundDeadlinesQuery = (season?: number) =>
+  queryOptions({
+    queryKey: ["public-league", "deadlines", season ?? "none"],
+    enabled: season !== undefined,
+    queryFn: async (): Promise<Map<number, string>> => {
+      const { data, error } = await supabase.rpc("get_round_deadlines", { _season: season as number });
+      if (error) return new Map();
+      return new Map(((data ?? []) as unknown as RoundDeadline[]).map((d) => [d.round, d.due_at]));
+    },
+    staleTime: 30_000,
+  });
+
+/** e.g. "Sat 25 Oct, 8:00 pm" in Kenya time. */
+export function formatDue(iso: string) {
+  return new Date(iso).toLocaleString("en-KE", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Africa/Nairobi" });
+}
+export const isPast = (iso: string) => new Date(iso).getTime() < Date.now();
+
+/** The player's next match: their earliest fixture that is still to be played. */
+export function nextFixture(fixtures: MyFixture[]) {
+  return [...fixtures].sort((a, b) => a.round - b.round).find((f) => f.status === "scheduled") ?? null;
+}

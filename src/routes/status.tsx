@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +10,7 @@ import { PageShell, StatusBadge } from "@/components/site";
 import { useDialogs } from "@/components/dialogs";
 import { friendlyError } from "@/lib/tournament";
 import { clearMine, loadMine, saveMine } from "@/lib/saved";
+import { formatDue, isPast, roundDeadlinesQuery, type MyRegistration } from "@/lib/league";
 
 export const Route = createFileRoute("/status")({
   head: () => ({
@@ -25,9 +27,7 @@ export const Route = createFileRoute("/status")({
   component: StatusPage,
 });
 
-type MyFixture = { id: string; round: number; is_home: boolean; opponent: string; opponent_team: string | null; home_score: number | null; away_score: number | null; status: "scheduled" | "confirmed" | "disputed"; my_dispute_open: boolean };
-type R = {
-  season_number?: number | null; season_status?: string | null; reference: string; gamer_tag: string; team_name: string | null; status: string; group_number: number | null; slot_number: number | null; reason: string | null; phone_hint: string; fixtures: MyFixture[] };
+type R = MyRegistration;
 
 function StatusPage() {
   const dialogs = useDialogs();
@@ -38,6 +38,7 @@ function StatusPage() {
   const [saved, setSaved] = useState<{ ref: string; phone: string } | null>(null);
   const [ready, setReady] = useState(false);
   const auto = useRef(false);
+  const deadlines = useQuery(roundDeadlinesQuery(r?.season_status === "running" ? r.season_number ?? undefined : undefined)).data;
   async function lookup(ref: string, phone: string) {
     setBusy(true);
     const { data, error } = await supabase.rpc("lookup_registration", { _reference: ref, _phone: phone });
@@ -116,6 +117,7 @@ function StatusPage() {
                   <span className="font-display text-lg font-bold">{f.status === "confirmed" ? `${mine} - ${theirs}` : f.status === "disputed" ? "Disputed" : "To play"}</span>
                   {f.status === "confirmed" && <Button size="sm" variant="outline" onClick={() => dispute(f.id)}>Dispute</Button>}
                   {f.status === "disputed" && f.my_dispute_open && <span className="text-xs text-muted-foreground">Under review</span>}
+                  {f.status === "scheduled" && deadlines?.get(f.round) && <span className={"w-full pl-[76px] text-xs " + (isPast(deadlines.get(f.round)!) ? "text-destructive" : "text-muted-foreground")}>Due {formatDue(deadlines.get(f.round)!)}</span>}
                 </li>
               );
             })}

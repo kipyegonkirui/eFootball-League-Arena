@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PageShell, StatusBadge } from "@/components/site";
 import { useDialogs } from "@/components/dialogs";
 import { formatKes, friendlyError } from "@/lib/tournament";
+import { formatDue, roundDeadlinesQuery } from "@/lib/league";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -232,6 +233,7 @@ function LeagueAdmin() {
   const qc = useQueryClient();
   const [group, setGroup] = useState(1);
   const [season, setSeason] = useState<number | undefined>(undefined);
+  const [deadlineSeason, setDeadlineSeason] = useState<number | null>(null);
   const ov = useQuery({
     queryKey: ["admin-league", season ?? "default"],
     queryFn: async () => {
@@ -357,6 +359,7 @@ function LeagueAdmin() {
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => setSeason(s.number)}>View fixtures</Button>
+                  {s.status === "running" && <Button size="sm" variant="outline" onClick={() => setDeadlineSeason(s.number)}>Set deadlines</Button>}
                   {s.status === "running" && <Button size="sm" variant="success" disabled={!finished} onClick={() => endSeason(s.number)} title={finished ? "" : "Finish every match first"}>End season</Button>}
                 </div>
               </div>
@@ -399,7 +402,59 @@ function LeagueAdmin() {
           </div>
         </>
       )}
+      {deadlineSeason !== null && <DeadlinesDialog key={deadlineSeason} season={deadlineSeason} onClose={() => setDeadlineSeason(null)} onSaved={refresh} />}
     </section>
+  );
+}
+
+const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+function DeadlinesDialog({ season, onClose, onSaved }: { season: number; onClose: () => void; onSaved: () => void }) {
+  const existing = useQuery(roundDeadlinesQuery(season)).data;
+  const [first, setFirst] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(20, 0, 0, 0); return toLocalInput(d); });
+  const [days, setDays] = useState("1");
+  const [saving, setSaving] = useState(false);
+  const filled = useRef(false);
+  // If deadlines are already set, start from them so changing one date is quick.
+  useEffect(() => {
+    if (filled.current || !existing || !existing.get(1)) return;
+    filled.current = true;
+    setFirst(toLocalInput(new Date(existing.get(1)!)));
+    const second = existing.get(2);
+    if (second) setDays(String(Math.max(1, Math.round((new Date(second).getTime() - new Date(existing.get(1)!).getTime()) / 86400000))));
+  }, [existing]);
+
+  async function save() {
+    const n = Number(days);
+    if (!first || Number.isNaN(new Date(first).getTime())) { toast.error("Choose when round 1 is due."); return; }
+    if (!Number.isInteger(n) || n < 1 || n > 30) { toast.error("Days between rounds must be from 1 to 30."); return; }
+    setSaving(true);
+    const { data, error } = await supabase.rpc("admin_set_round_deadlines", { _season: season, _first_due: new Date(first).toISOString(), _days: n });
+    setSaving(false);
+    if (error) { toast.error(friendlyError(error)); return; }
+    const r = data as unknown as { rounds: number; last_due: string };
+    toast.success(`Deadlines set for ${r.rounds} rounds. The last round is due ${formatDue(r.last_due)}.`);
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Season {season} round deadlines</DialogTitle>
+          <DialogDescription>Players see the date next to their fixtures. Each round is due the chosen number of days after the one before it. Saving again replaces the dates.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5"><Label>Round 1 is due</Label><Input type="datetime-local" value={first} onChange={(e) => setFirst(e.target.value)} className="h-11" /></div>
+          <div className="space-y-1.5"><Label>Days between rounds</Label><Input type="number" min={1} max={30} value={days} onChange={(e) => setDays(e.target.value)} className="h-11" /></div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="hero" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save deadlines"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

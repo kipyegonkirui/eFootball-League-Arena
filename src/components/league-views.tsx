@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { groupLetter, type Fixture, type TableRow } from "@/lib/league";
+import { formatDue, groupLetter, isPast, type Fixture, type TableRow } from "@/lib/league";
 
 export function Pill({ active, onClick, children, className }: { active: boolean; onClick: () => void; children: React.ReactNode; className?: string }) {
   return (
@@ -54,7 +54,7 @@ export function StandingsTable({ rows, showGroup, highlightTop = 0 }: { rows: Ta
 }
 
 /** Results for one group, with a picker to look at a single round or all of them. */
-export function RoundResults({ fixtures, names, group, single = false }: { fixtures: Fixture[]; names: Map<string, TableRow>; group: number; single?: boolean }) {
+export function RoundResults({ fixtures, names, group, single = false, deadlines }: { fixtures: Fixture[]; names: Map<string, TableRow>; group: number; single?: boolean; deadlines?: Map<number, string> | undefined }) {
   const list = fixtures.filter((f) => f.group_number === group);
   const rounds = [...new Set(list.map((f) => f.round))].sort((a, b) => a - b);
   const [pick, setPick] = useState<number | "all">("all");
@@ -81,12 +81,15 @@ export function RoundResults({ fixtures, names, group, single = false }: { fixtu
         {visible.map((r) => {
           const games = list.filter((f) => f.round === r);
           const played = games.filter((f) => f.status === "confirmed").length;
+          const due = deadlines?.get(r);
+          const late = !!due && isPast(due) && played < games.length;
           return (
             <div key={r} className="panel overflow-hidden">
               <div className="flex items-center justify-between border-b border-border px-4 py-2">
                 <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Round {r}</p>
                 <p className="text-xs text-muted-foreground">{played} of {games.length} played</p>
               </div>
+              {due && <p className={cn("border-b border-border/60 px-4 py-1.5 text-xs", late ? "font-semibold text-destructive" : "text-muted-foreground")}>{played === games.length ? "Was due" : late ? "Overdue, was due" : "Play by"} {formatDue(due)}</p>}
               <ul className="divide-y divide-border/60">
                 {games.map((f) => (
                   <li key={f.id} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-4 py-2.5 text-sm">

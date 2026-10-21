@@ -85,6 +85,13 @@
       "when": 1792521200000,
       "tag": "0011_admin_remove_player",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792521300000,
+      "tag": "0012_round_deadlines",
+      "breakpoints": true
     }
   ]
 }

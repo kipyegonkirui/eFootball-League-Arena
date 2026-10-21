@@ -4,11 +4,12 @@ import { useMemo, useState } from "react";
 import { Medal, Radio } from "lucide-react";
 import { Pill, RoundResults, StandingsTable } from "@/components/league-views";
 import { SeasonArchive, SeasonResultsDialog } from "@/components/season-viewer";
+import { MyMatches } from "@/components/my-matches";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageShell } from "@/components/site";
 import { FORMAT_LABEL, formatKes, publicTournamentQuery, useLiveTournament, type Prize } from "@/lib/tournament";
 import {
-  buildRows, groupLetter, groupTable, overallTable, publicLeagueQuery, seasonComplete, useLiveFixtures,
+  buildRows, groupLetter, groupTable, overallTable, publicLeagueQuery, roundDeadlinesQuery, seasonComplete, useLiveFixtures,
   type Winner,
 } from "@/lib/league";
 
@@ -48,6 +49,7 @@ function LeaguePage() {
 
   const data = resolving ? null : (lg.data ?? null);
   const liveSeasons = (data?.seasons ?? []).filter((s) => s.status !== "completed");
+  const deadlines = useQuery(roundDeadlinesQuery(data && data.season.status === "running" ? data.season.number : undefined)).data;
   const groups = data?.groups ?? [];
   const fixtures = data?.fixtures ?? [];
   const rows = useMemo(() => buildRows(groups, fixtures), [groups, fixtures]);
@@ -76,6 +78,8 @@ function LeaguePage() {
         {fixtures.length > 0 && <span>{played} of {fixtures.length} matches played</span>}
       </div>
 
+      {data && data.season.status !== "completed" && <MyMatches seasonNumber={data.season.number} deadlines={deadlines} />}
+
       {data && <Prizes prize={data.prize} final={done || completed} completed={completed} />}
 
       {lg.error && <p className="mt-6 text-destructive">Couldn't load the league. Please refresh.</p>}
@@ -102,7 +106,7 @@ function LeaguePage() {
         ) : fixtures.length === 0 ? (
           <p className="panel p-6 text-muted-foreground">Fixtures are created by the organiser once a group has all 8 players verified.</p>
         ) : (
-          <RoundResults key={`${data?.season.number}-${view}`} fixtures={fixtures} names={names} group={view === "overall" ? groups[0]?.group_number ?? 1 : view} />
+          <RoundResults key={`${data?.season.number}-${view}`} fixtures={fixtures} names={names} group={view === "overall" ? groups[0]?.group_number ?? 1 : view} deadlines={deadlines} />
         )}
       </div>
 
