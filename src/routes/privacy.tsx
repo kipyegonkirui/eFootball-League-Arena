@@ -42,6 +42,7 @@ function PrivacyPage() {
           <ul>
             <li>To register you, check your payment and confirm your slot.</li>
             <li>To run groups, fixtures, the league table, disputes and prize payouts, and to contact you about your matches.</li>
+            <li>To let you and your next opponent reach each other on WhatsApp to arrange the match.</li>
             <li>To prevent fraud, such as duplicate registrations or reused transaction codes.</li>
           </ul>
           <p>We process this data because you ask to enter the tournament (contract) and because you consent when you tick the box on the registration form.</p>
@@ -50,14 +51,17 @@ function PrivacyPage() {
         <S title="What is public and what is private">
           <ul>
             <li><b>Public:</b> your eFootball username, team name, platform, group, fixtures and results.</li>
-            <li><b>Private (organisers only):</b> full name, phone number, email, payment details and screenshots. Screenshots are stored in a private file store.</li>
+            <li><b>Private (organisers only):</b> full name, email, payment details and screenshots. Screenshots are stored in a private file store.</li>
+            <li><b>Phone number:</b> organisers see it. The one other person who can see it is the player you are due to face next, so you can arrange the match on WhatsApp.</li>
             <li>Your phone number is never shown on the public site. The Check status page shows only the last 3 digits.</li>
+            <li>Your next opponent gets your number only for that one upcoming match, and only after they confirm their own registration details. Once you have played, it is no longer available to them for that match, and nobody else can see it.</li>
           </ul>
         </S>
 
         <S title="Who we share it with">
           <ul>
             <li>We do <b>not</b> sell your data or use it for advertising.</li>
+            <li>Your phone number is shared with your next opponent only, as described above.</li>
             <li>It is processed by our hosting and database provider (Supabase) and by Safaricom M-Pesa for payments and refunds.</li>
             <li>We may disclose data if required by law or to investigate fraud.</li>
           </ul>

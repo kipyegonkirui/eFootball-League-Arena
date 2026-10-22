@@ -132,7 +132,7 @@ function RegisterPage() {
           <F label="Phone that paid (if different)"><Input name="payer_phone" inputMode="tel" className="h-11" /></F>
           <F label="Screenshot (optional)"><Input name="screenshot" type="file" accept="image/png,image/jpeg,image/webp" /></F>
           <label className="flex items-start gap-2 text-sm text-muted-foreground">
-            <input type="checkbox" name="terms" className="mt-1" /> <span>I have read and accept the <Link to="/rules" target="_blank" className="text-primary underline">tournament rules</Link> and <Link to="/privacy" target="_blank" className="text-primary underline">privacy notice</Link>. I understand my registration holds no seat until an organiser confirms my payment. We never ask for your M-Pesa PIN.</span>
+            <input type="checkbox" name="terms" className="mt-1" /> <span>I have read and accept the <Link to="/rules" target="_blank" className="text-primary underline">tournament rules</Link> and <Link to="/privacy" target="_blank" className="text-primary underline">privacy notice</Link>. I understand my registration holds no seat until an organiser confirms my payment. I understand that the player I am due to face next can see my phone number, to message me on WhatsApp and arrange our match. We never ask for your M-Pesa PIN.</span>
           </label>
           <Button type="submit" variant="hero" size="xl" className="w-full" disabled={busy || !payReady}>{busy ? "Submitting…" : "Submit registration"}</Button>
         </form>

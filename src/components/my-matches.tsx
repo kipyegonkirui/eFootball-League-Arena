@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,7 +65,7 @@ export function MyMatches({ seasonNumber, deadlines }: { seasonNumber: number; d
 
       {r.status === "verified" && r.fixtures.length > 0 && (
         <>
-          {next ? <NextMatch f={next} due={deadlines?.get(next.round)} /> : <p className="mt-3 rounded-lg bg-primary/10 p-3 text-sm font-semibold text-primary">All your matches are played.</p>}
+          {next ? <NextMatch f={next} due={deadlines?.get(next.round)} creds={saved} me={r.gamer_tag} /> : <p className="mt-3 rounded-lg bg-primary/10 p-3 text-sm font-semibold text-primary">All your matches are played.</p>}
           <details className="mt-4 group">
             <summary className="cursor-pointer select-none text-sm font-semibold text-primary">All my fixtures ({played} of {r.fixtures.length} played)</summary>
             <ul className="mt-2 divide-y divide-border/60 rounded-lg border border-border">
@@ -79,7 +79,7 @@ export function MyMatches({ seasonNumber, deadlines }: { seasonNumber: number; d
   );
 }
 
-function NextMatch({ f, due }: { f: MyFixture; due: string | undefined }) {
+function NextMatch({ f, due, creds, me }: { f: MyFixture; due: string | undefined; creds: Saved; me: string }) {
   const late = due ? isPast(due) : false;
   return (
     <div className="mt-3 rounded-xl border border-primary/40 bg-primary/5 p-4">
@@ -92,7 +92,40 @@ function NextMatch({ f, due }: { f: MyFixture; due: string | undefined }) {
           {late ? "Was due" : "Play by"} {formatDue(due)}
         </p>
       )}
+      <div className="mt-3"><OpponentWhatsApp creds={creds} fixture={f} me={me} due={due} /></div>
     </div>
+  );
+}
+
+type Contact = { fixture_id: string; round: number; opponent: string; phone: string };
+
+/**
+ * WhatsApp button to the opponent of the player's NEXT match only. The number comes from the server, which releases it
+ * only for the caller's next scheduled match after checking the caller's own reference and phone. Renders nothing
+ * if there is no contact (no next match, or the feature isn't installed yet).
+ */
+export function OpponentWhatsApp({ creds, fixture, me, due }: { creds: Saved; fixture: MyFixture; me: string; due: string | undefined }) {
+  const q = useQuery({
+    queryKey: ["public-league", "contact", creds.ref, creds.phone, fixture.id],
+    queryFn: async (): Promise<Contact | null> => {
+      const { data, error } = await supabase.rpc("get_next_match_contact", { _reference: creds.ref, _phone: creds.phone });
+      if (error) throw new Error(error.message);
+      return (data as unknown as Contact | null) ?? null;
+    },
+    retry: false,
+    staleTime: 60_000,
+  });
+  const c = q.data;
+  if (!c || c.fixture_id !== fixture.id) return null;
+  const digits = c.phone.replace(/\D/g, "");
+  if (digits.length < 9) return null;
+  const text = `Hi ${c.opponent}, it's ${me} from eFootball Arena Kenya. Our Round ${c.round} match ${due ? `is due ${formatDue(due)}` : "is next"}. When are you free to play?`;
+  return (
+    <Button asChild variant="success" size="sm">
+      <a href={`https://wa.me/${digits}?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer">
+        <MessageCircle className="h-4 w-4" /> Message {c.opponent} on WhatsApp
+      </a>
+    </Button>
   );
 }
 
