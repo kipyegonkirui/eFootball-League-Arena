@@ -101,14 +101,15 @@ export function SiteHeader() {
 export function SiteFooter() {
   return (
     <footer className="mt-20 border-t border-border/60">
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-        <p>© {new Date().getFullYear()} eFootball Arena Kenya. Independent tournament organiser.</p>
-        <div className="flex gap-4">
+      {/* Links sit on the left and the footer has extra bottom space, so a floating host badge in the bottom-right corner never covers them. */}
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 pb-24 pt-8 text-sm text-muted-foreground">
+        <nav aria-label="Footer" className="flex flex-wrap gap-x-5 gap-y-2">
           <Link to="/status" className="hover:text-foreground">Check status</Link>
           <Link to="/rules" className="hover:text-foreground">Rules</Link>
           <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
-          <Link to="/auth" className="hover:text-foreground">Organiser login</Link>
-        </div>
+          <Link to="/auth" className="font-semibold hover:text-foreground">Organiser login</Link>
+        </nav>
+        <p>© {new Date().getFullYear()} eFootball Arena Kenya. Independent tournament organiser.</p>
       </div>
     </footer>
   );
