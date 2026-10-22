@@ -9,7 +9,7 @@ export type Prize = {
   first_kes: number; second_kes: number; third_kes: number;
 };
 export type LeagueFormat = "one_week" | "two_week";
-export const FORMAT_LABEL: Record<LeagueFormat, string> = { one_week: "1-week league", two_week: "2-week league (home & away)" };
+export const FORMAT_LABEL: Record<LeagueFormat, string> = { one_week: "Single league (7 matches)", two_week: "Double league (14 matches, home & away)" };
 
 export type PublicGroup = {
   league_format?: LeagueFormat | null;

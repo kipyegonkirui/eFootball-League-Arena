@@ -225,7 +225,7 @@ type ASeason = { number: number; status: "running" | "completed"; started_at: st
 type ADispute = { id: string; fixture_id: string; raised_by: string; note: string; created_at: string; season?: number; group_number: number; round: number; home_tag: string; away_tag: string; home_score: number | null; away_score: number | null };
 type Overview = { registration_season: number | null; can_generate: boolean; selected: number | null; groups: AGroup[]; seasons: ASeason[]; fixtures: AFixture[]; disputes: ADispute[] };
 
-const FORMAT_NAME = { one_week: "1-week league", two_week: "2-week league (home & away)" } as const;
+const FORMAT_NAME = { one_week: "single league (7 matches)", two_week: "double league (14 matches, home & away)" } as const;
 const letter = (n: number) => String.fromCharCode(64 + n);
 
 function LeagueAdmin() {
@@ -275,7 +275,7 @@ function LeagueAdmin() {
     const ready = lgroups.filter((g) => g.is_full && !g.has_fixtures);
     const waiting = lgroups.filter((g) => !g.is_full);
     const lines = [
-      ...ready.map((g) => `Group ${letter(g.group_number)} starts as a ${g.one_week_votes > g.two_week_votes ? FORMAT_NAME.one_week : FORMAT_NAME.two_week} (${g.one_week_votes} chose 1 week, ${g.two_week_votes} chose 2 weeks).`),
+      ...ready.map((g) => `Group ${letter(g.group_number)} starts as a ${g.one_week_votes > g.two_week_votes ? FORMAT_NAME.one_week : FORMAT_NAME.two_week} (${g.one_week_votes} chose single, ${g.two_week_votes} chose double).`),
       ...waiting.map((g) => `Group ${letter(g.group_number)} has only ${g.verified} of ${g.capacity} players. They move to Season ${(d?.registration_season ?? 0) + 1} with their payments.`),
     ];
     const go = await dialogs.confirm({
@@ -346,8 +346,8 @@ function LeagueAdmin() {
               return (
                 <div key={g.group_number} className="rounded-lg border border-border p-4 text-sm">
                   <p className="font-display text-lg font-bold uppercase">Group {letter(g.group_number)} <span className="text-xs font-normal text-muted-foreground">{g.verified} of {g.capacity} verified</span></p>
-                  <p className="mt-2">1 week: <b>{g.one_week_votes}</b> ({pct(g.one_week_votes)}%)</p>
-                  <p>2 weeks: <b>{g.two_week_votes}</b> ({pct(g.two_week_votes)}%)</p>
+                  <p className="mt-2">Single (7 matches): <b>{g.one_week_votes}</b> ({pct(g.one_week_votes)}%)</p>
+                  <p>Double (14 matches): <b>{g.two_week_votes}</b> ({pct(g.two_week_votes)}%)</p>
                   <p className="mt-2 text-xs text-muted-foreground">
                     {g.is_full ? <>Ready. Will use: <b className="text-foreground">{leading}</b></> : "Not full. Moves to the next season if you start now."}
                   </p>
@@ -417,17 +417,19 @@ function LeagueAdmin() {
           </div>
         </>
       )}
-      {deadlineSeason !== null && <DeadlinesDialog key={deadlineSeason} season={deadlineSeason} onClose={() => setDeadlineSeason(null)} onSaved={refresh} />}
+      {deadlineSeason !== null && <DeadlinesDialog key={deadlineSeason} season={deadlineSeason} rounds={selected?.number === deadlineSeason ? Math.max(0, ...fixtures.map((x) => x.round)) : 0} onClose={() => setDeadlineSeason(null)} onSaved={refresh} />}
     </section>
   );
 }
 
 const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
-function DeadlinesDialog({ season, onClose, onSaved }: { season: number; onClose: () => void; onSaved: () => void }) {
+function DeadlinesDialog({ season, rounds, onClose, onSaved }: { season: number; rounds: number; onClose: () => void; onSaved: () => void }) {
   const existing = useQuery(roundDeadlinesQuery(season)).data;
   const [first, setFirst] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(6, 0, 0, 0); return toLocalInput(d); });
-  const [perDay, setPerDay] = useState("7");
+  // Aim to finish the league in about 3 days: 7 rounds -> 3 a day, 14 rounds -> 5 a day.
+  const [perDay, setPerDay] = useState(String(rounds > 0 ? Math.ceil(rounds / 3) : 3));
+  const daysToFinish = rounds > 0 && Number(perDay) >= 1 ? Math.ceil(rounds / Number(perDay)) : null;
   const [saving, setSaving] = useState(false);
   const filled = useRef(false);
   // If deadlines are already set, start from them so changing one date is quick.
@@ -463,7 +465,9 @@ function DeadlinesDialog({ season, onClose, onSaved }: { season: number; onClose
         <div className="space-y-4">
           <div className="space-y-1.5"><Label>First deadline (set it to 6:00 am)</Label><Input type="datetime-local" value={first} onChange={(e) => setFirst(e.target.value)} className="h-11" /></div>
           <div className="space-y-1.5"><Label>Rounds per day</Label><Input type="number" min={1} max={30} value={perDay} onChange={(e) => setPerDay(e.target.value)} className="h-11" />
-            <p className="text-xs text-muted-foreground">7 means rounds 1 to 7 are all due at the first deadline, and a 14-round league's rounds 8 to 14 are due 24 hours later.</p></div>
+            <p className="text-xs text-muted-foreground">
+              {daysToFinish !== null ? <>This season has <b>{rounds} rounds</b>. At {perDay} a day it finishes in <b>{daysToFinish} {daysToFinish === 1 ? "day" : "days"}</b>. </> : null}
+              Rounds on the same day share one deadline; the next day's rounds are due 24 hours later.</p></div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>

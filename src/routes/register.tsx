@@ -112,16 +112,16 @@ function RegisterPage() {
             <F label="Game mode"><select name="game_mode" className={sel} required>{GAME_MODES.map((p) => <option key={p}>{p}</option>)}</select></F>
           </div>
           <fieldset className="space-y-2">
-            <legend className="mb-1 text-sm font-medium">How long should your league run?</legend>
+            <legend className="mb-1 text-sm font-medium">Which league format do you prefer?</legend>
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 has-[:checked]:border-primary has-[:checked]:bg-primary/10">
               <input type="radio" name="league_format" value="one_week" required className="mt-1" />
-              <span><b>1 week</b> · everyone plays everyone once<br /><span className="text-sm text-muted-foreground">7 matches, about one a day. Quick and easy to fit in.</span></span>
+              <span><b>Single league</b> · everyone plays everyone once<br /><span className="text-sm text-muted-foreground">7 matches, wrapped up in about 2 to 3 days. Quick and easy to fit in.</span></span>
             </label>
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 has-[:checked]:border-primary has-[:checked]:bg-primary/10">
               <input type="radio" name="league_format" value="two_week" required className="mt-1" />
-              <span><b>2 weeks</b> · home and away<br /><span className="text-sm text-muted-foreground">14 matches, about one a day. Fairer, more games.</span></span>
+              <span><b>Double league</b> · home and away<br /><span className="text-sm text-muted-foreground">14 matches, takes a few days longer. Fairer, more games.</span></span>
             </label>
-            <p className="text-xs text-muted-foreground">Each group follows the choice most of its players make. If it's a tie, the 2-week league is used.</p>
+            <p className="text-xs text-muted-foreground">Each group follows the choice most of its players make. If it's a tie, the double league is used.</p>
           </fieldset>
           <hr className="border-border" />
           <h2 className="text-2xl font-bold uppercase">Payment proof</h2>
