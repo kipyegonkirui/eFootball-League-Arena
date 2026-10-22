@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { clearMine, loadMine, saveMine, type Saved } from "@/lib/saved";
+import { MatchScreenshotUpload } from "@/components/match-screenshot";
 import { formatDue, groupLetter, isPast, nextFixture, type MyFixture, type MyRegistration } from "@/lib/league";
 
 async function lookup(ref: string, phone: string): Promise<MyRegistration | null> {
@@ -93,6 +94,7 @@ function NextMatch({ f, due, creds, me }: { f: MyFixture; due: string | undefine
         </p>
       )}
       <div className="mt-3"><OpponentWhatsApp creds={creds} fixture={f} me={me} due={due} /></div>
+      <MatchScreenshotUpload creds={creds} fixture={f} />
     </div>
   );
 }

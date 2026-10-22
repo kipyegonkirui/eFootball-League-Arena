@@ -242,8 +242,19 @@ function LeagueAdmin() {
       return data as unknown as Overview;
     },
   });
+  // Player-uploaded result screenshots. If the SQL for this isn't installed yet the list is simply empty.
+  const shotsQ = useQuery({
+    queryKey: ["admin-shots"],
+    retry: false,
+    queryFn: async (): Promise<Shot[]> => {
+      const { data, error } = await supabase.rpc("admin_match_screenshots");
+      if (error) return [];
+      return (data ?? []) as unknown as Shot[];
+    },
+  });
+  const shotsFor = (fixtureId: string) => (shotsQ.data ?? []).filter((x) => x.fixture_id === fixtureId);
   const refresh = () => {
-    for (const k of ["admin-league", "public-league", "public-fixtures", "public-tournament", "admin-regs"]) qc.invalidateQueries({ queryKey: [k] });
+    for (const k of ["admin-league", "public-league", "public-fixtures", "public-tournament", "admin-regs", "admin-shots"]) qc.invalidateQueries({ queryKey: [k] });
   };
   const d = ov.data;
   const fixtures = d?.fixtures ?? [];
@@ -371,7 +382,7 @@ function LeagueAdmin() {
       {disputes.length > 0 && (
         <div className="mt-6 space-y-3">
           <h3 className="text-xl font-bold uppercase text-destructive">Open disputes ({disputes.length})</h3>
-          {disputes.map((x) => <DisputeCard key={x.id} d={x} onResolve={resolve} />)}
+          {disputes.map((x) => <DisputeCard key={x.id} d={x} onResolve={resolve} shots={shotsFor(x.fixture_id)} />)}
         </div>
       )}
 
@@ -394,7 +405,7 @@ function LeagueAdmin() {
                     <span className="text-xs text-muted-foreground">{done} of {list.length} played</span>
                   </div>
                   <div className="divide-y divide-border/60">
-                    {list.map((f) => <ResultRow key={f.id + f.status + f.home_score + f.away_score + f.result_type} f={f} locked={locked} onSave={record} />)}
+                    {list.map((f) => <ResultRow key={f.id + f.status + f.home_score + f.away_score + f.result_type} f={f} locked={locked} onSave={record} shots={shotsFor(f.id)} />)}
                   </div>
                 </div>
               );
@@ -458,7 +469,50 @@ function DeadlinesDialog({ season, onClose, onSaved }: { season: number; onClose
   );
 }
 
-function ResultRow({ f, locked = false, onSave }: { f: AFixture; locked?: boolean; onSave: (id: string, h: string, a: string, type?: "played" | "no_show", reason?: string) => Promise<boolean> }) {
+type Shot = { fixture_id: string; gamer_tag: string; path: string; created_at: string };
+
+/** Opens both players' uploaded result screenshots side by side so the organiser can compare them and enter the score. */
+function ShotsButton({ shots, title }: { shots: Shot[]; title: string }) {
+  const [open, setOpen] = useState(false);
+  if (shots.length === 0) return null;
+  return (
+    <>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>Screenshots ({shots.length}/2)</Button>
+      {open && <ShotsDialog shots={shots} title={title} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function ShotsDialog({ shots, title, onClose }: { shots: Shot[]; title: string; onClose: () => void }) {
+  const urls = useQuery({
+    queryKey: ["admin-shot-urls", shots.map((x) => x.path).join("|")],
+    queryFn: () => Promise.all(shots.map(async (x) => (await supabase.storage.from("match-screenshots").createSignedUrl(x.path, 600)).data?.signedUrl ?? null)),
+  });
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>Compare what each player uploaded, then enter the score on the match row. Tap an image to open it full size.</DialogDescription>
+        </DialogHeader>
+        <div className={"grid gap-4 " + (shots.length > 1 ? "sm:grid-cols-2" : "")}>
+          {shots.map((x, i) => (
+            <figure key={x.path} className="space-y-2">
+              <figcaption className="text-sm"><b>{x.gamer_tag}</b> <span className="text-muted-foreground">· uploaded {fmtDate(x.created_at)}</span></figcaption>
+              {urls.isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : urls.data?.[i] ? (
+                <a href={urls.data[i]!} target="_blank" rel="noreferrer"><img src={urls.data[i]!} alt={`Result screenshot from ${x.gamer_tag}`} className="w-full rounded-lg border border-border" /></a>
+              ) : <p className="text-sm text-destructive">Couldn't load this image.</p>}
+            </figure>
+          ))}
+        </div>
+        {shots.length < 2 && <p className="text-sm text-muted-foreground">Only one player has uploaded so far.</p>}
+        <DialogFooter><Button variant="outline" onClick={onClose}>Close</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ResultRow({ f, locked = false, onSave, shots = [] }: { f: AFixture; locked?: boolean; shots?: Shot[]; onSave: (id: string, h: string, a: string, type?: "played" | "no_show", reason?: string) => Promise<boolean> }) {
   const noShow = f.result_type === "no_show";
   const [h, setH] = useState(f.home_score?.toString() ?? "");
   const [a, setA] = useState(f.away_score?.toString() ?? "");
@@ -491,6 +545,7 @@ function ResultRow({ f, locked = false, onSave }: { f: AFixture; locked?: boolea
         <span>-</span>
         <Input className={num} type="number" min={0} max={99} value={a} onChange={(e) => setA(e.target.value)} disabled={locked || f.status === "disputed"} aria-label={`${f.away_tag} goals`} />
         <span className="min-w-[110px] flex-1 font-semibold">{f.away_tag}</span>
+        <ShotsButton shots={shots} title={`${f.home_tag} vs ${f.away_tag}`} />
         {locked ? null : f.status === "disputed" ? <StatusBadge status="pending" className="normal-case" /> : (
           <>
             <Button size="sm" variant={f.status === "confirmed" ? "outline" : "success"} onClick={askOrSave}>{f.status === "confirmed" ? "Correct" : "Save"}</Button>
@@ -532,7 +587,7 @@ function ResultRow({ f, locked = false, onSave }: { f: AFixture; locked?: boolea
   );
 }
 
-function DisputeCard({ d, onResolve }: { d: ADispute; onResolve: (d: ADispute, h: string, a: string, note: string, voidIt: boolean) => void }) {
+function DisputeCard({ d, onResolve, shots = [] }: { d: ADispute; shots?: Shot[]; onResolve: (d: ADispute, h: string, a: string, note: string, voidIt: boolean) => void }) {
   const [h, setH] = useState(d.home_score?.toString() ?? "");
   const [a, setA] = useState(d.away_score?.toString() ?? "");
   const [note, setNote] = useState("");
@@ -545,6 +600,7 @@ function DisputeCard({ d, onResolve }: { d: ADispute; onResolve: (d: ADispute, h
         <span>-</span>
         <Input className="h-9 w-16 text-center" type="number" min={0} max={99} value={a} onChange={(e) => setA(e.target.value)} aria-label="Final away goals" />
         <Input className="h-9 min-w-[200px] flex-1" placeholder="Resolution note (required)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <ShotsButton shots={shots} title={`${d.home_tag} vs ${d.away_tag}`} />
         <Button size="sm" variant="success" onClick={() => onResolve(d, h, a, note, false)}>Confirm score</Button>
         <Button size="sm" variant="destructive" onClick={() => onResolve(d, h, a, note, true)}>Void &amp; replay</Button>
       </div>

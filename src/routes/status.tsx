@@ -12,6 +12,7 @@ import { friendlyError } from "@/lib/tournament";
 import { clearMine, loadMine, saveMine } from "@/lib/saved";
 import { formatDue, isPast, nextFixture, roundDeadlinesQuery, type MyRegistration } from "@/lib/league";
 import { OpponentWhatsApp } from "@/components/my-matches";
+import { MatchScreenshotUpload } from "@/components/match-screenshot";
 
 export const Route = createFileRoute("/status")({
   head: () => ({
@@ -119,7 +120,7 @@ function StatusPage() {
                   <span className="font-display text-lg font-bold">{f.status === "confirmed" ? `${mine} - ${theirs}` : f.status === "disputed" ? "Disputed" : "To play"}</span>
                   {f.status === "confirmed" && <Button size="sm" variant="outline" onClick={() => dispute(f.id)}>Dispute</Button>}
                   {f.status === "disputed" && f.my_dispute_open && <span className="text-xs text-muted-foreground">Under review</span>}
-                  {isNext && creds && <span className="w-full"><OpponentWhatsApp creds={creds} fixture={f} me={r.gamer_tag} due={deadlines?.get(f.round)} /></span>}
+                  {isNext && creds && <span className="w-full"><OpponentWhatsApp creds={creds} fixture={f} me={r.gamer_tag} due={deadlines?.get(f.round)} /><MatchScreenshotUpload creds={creds} fixture={f} /></span>}
                   {f.status === "scheduled" && deadlines?.get(f.round) && <span className={"w-full pl-[76px] text-xs " + (isPast(deadlines.get(f.round)!) ? "text-destructive" : "text-muted-foreground")}>Due {formatDue(deadlines.get(f.round)!)}</span>}
                 </li>
               );
