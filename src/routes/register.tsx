@@ -105,7 +105,7 @@ function RegisterPage() {
           <F label="Full name"><Input name="full_name" required autoComplete="name" className="h-11" /></F>
           <F label="eFootball username (shown publicly, must be exactly as in the game)"><Input name="gamer_tag" required maxLength={24} className="h-11" /></F>
           <F label="Team name (shown publicly, can match other players)"><Input name="team_name" required minLength={2} maxLength={30} placeholder="e.g. Nairobi Lions FC" className="h-11" /></F>
-          <F label="Phone number"><Input name="phone" required inputMode="tel" placeholder="0712 345 678" className="h-11" /></F>
+          <F label="Phone number (WhatsApp no.)"><Input name="phone" required inputMode="tel" placeholder="0712 345 678" className="h-11" /></F>
           <F label="Email (optional)"><Input name="email" type="email" className="h-11" /></F>
           <div className="grid gap-4 sm:grid-cols-2">
             <F label="Platform"><select name="platform" className={sel} required>{PLATFORMS.map((p) => <option key={p}>{p}</option>)}</select></F>
