@@ -42,9 +42,12 @@ function RulesPage() {
 
         <S n={2} title="Match deadlines">
           <ul>
-            <li>Fixtures are released in rounds, roughly <b>one round per day</b> (7 rounds in a 1-week league, 14 in a 2-week league). The organiser announces each round's date and deadline on the site and in your group chat.</li>
-            <li>Agree a kick-off time with your opponent in the group chat <b>as soon as the round opens</b>. Offer at least two times that suit you.</li>
-            <li>A match not played by the end of its round is handled under section 3 unless the organiser extended the deadline in writing.</li>
+            <li>Each day's play window runs from <b>6:00 am to 6:00 am the next morning</b> (Kenya time). The organiser sets the deadline for every round and shows it next to your fixtures on the site.</li>
+            <li>The organiser can release several rounds in the same window, for example <b>all 7 rounds of a 1-week league in one day</b> (a 2-week league has 14 rounds, so two windows). Check the deadline shown on your next match.</li>
+            <li>Agree a kick-off time with your opponent <b>as soon as the round opens</b>. Offer at least two times that suit you, and use the WhatsApp button on your next match.</li>
+            <li><b>Matches are not postponed.</b> A match not played by its deadline is a forfeit: the player who did not play loses <b>3-0</b>. If you were ready and your opponent was not, upload your screenshots or chat proof so the organiser can award you the win.</li>
+            <li>If neither player played, the match is recorded 0-0 with 0 points for both. See section 3.</li>
+            <li>The organiser may extend a deadline only in writing, and only for a genuine problem that you reported <b>before</b> the deadline.</li>
           </ul>
         </S>
 
@@ -53,7 +56,7 @@ function RulesPage() {
             <li>Wait <b>15 minutes</b> after the agreed time. If your opponent has not joined, screenshot the chat showing the agreed time and your invite, then report it to the organiser.</li>
             <li>The no-show player loses <b>3-0</b>. If both players failed to show or reply, the match is recorded <b>0-0 with 0 points for both players</b> (a genuine 0-0 draw still gives 1 point each). The organiser writes down the reason for every no-show.</li>
             <li>A player who forfeits <b>3 matches</b> without a valid reason may be removed. The entry fee is not refunded and their remaining matches are recorded as 3-0 wins for opponents.</li>
-            <li>Tell your opponent and the organiser <b>before</b> kick-off if you have a genuine problem. The organiser may rearrange one match per player.</li>
+            <li>Tell your opponent and the organiser <b>before</b> the deadline if you have a genuine problem. The organiser may extend the deadline for <b>one match per player</b>, in writing. Without that, the deadline in section 2 applies.</li>
           </ul>
         </S>
 

@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { PageShell, StatusBadge } from "@/components/site";
 import { useDialogs } from "@/components/dialogs";
 import { formatKes, friendlyError } from "@/lib/tournament";
-import { formatDue, roundDeadlinesQuery } from "@/lib/league";
+import { formatDue, isPast, roundDeadlinesQuery } from "@/lib/league";
 
 export const Route = createFileRoute("/admin")({
   ssr: false,
@@ -264,6 +264,9 @@ function LeagueAdmin() {
   const canStart = d?.can_generate ?? false;
   const selected = seasons.find((s) => s.number === d?.selected) ?? null;
   const locked = selected?.status === "completed";
+  const deadlines = useQuery(roundDeadlinesQuery(selected?.status === "running" ? selected.number : undefined)).data;
+  const dueOf = (round: number) => deadlines?.get(round);
+  const overdue = fixtures.filter((x) => x.status === "scheduled" && !!dueOf(x.round) && isPast(dueOf(x.round)!)).length;
   const groupNums = [...new Set(fixtures.map((f) => f.group_number))].sort((x, y) => x - y);
   const activeGroup = groupNums.includes(group) ? group : groupNums[0] ?? 1;
   const shown = fixtures.filter((f) => f.group_number === activeGroup);
@@ -391,6 +394,7 @@ function LeagueAdmin() {
       {groupNums.length > 0 && (
         <>
           <h3 className="mt-8 text-2xl font-bold uppercase">Season {d?.selected} fixtures {locked && <span className="text-sm font-normal text-muted-foreground">· ended, results locked</span>}</h3>
+          {overdue > 0 && <p className="mt-1 text-sm font-semibold text-destructive">{overdue} {overdue === 1 ? "match is" : "matches are"} overdue. Use Forfeit to give the walkover to the player who showed up, or No-show if neither played.</p>}
           <div className="mt-3 flex flex-wrap gap-2">
             {groupNums.map((g) => <Button key={g} size="sm" variant={g === activeGroup ? "hero" : "outline"} onClick={() => setGroup(g)}>Group {letter(g)}</Button>)}
           </div>
@@ -405,7 +409,7 @@ function LeagueAdmin() {
                     <span className="text-xs text-muted-foreground">{done} of {list.length} played</span>
                   </div>
                   <div className="divide-y divide-border/60">
-                    {list.map((f) => <ResultRow key={f.id + f.status + f.home_score + f.away_score + f.result_type} f={f} locked={locked} onSave={record} shots={shotsFor(f.id)} />)}
+                    {list.map((f) => <ResultRow key={f.id + f.status + f.home_score + f.away_score + f.result_type} f={f} locked={locked} onSave={record} shots={shotsFor(f.id)} due={dueOf(f.round)} />)}
                   </div>
                 </div>
               );
@@ -422,8 +426,8 @@ const toLocalInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() *
 
 function DeadlinesDialog({ season, onClose, onSaved }: { season: number; onClose: () => void; onSaved: () => void }) {
   const existing = useQuery(roundDeadlinesQuery(season)).data;
-  const [first, setFirst] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(20, 0, 0, 0); return toLocalInput(d); });
-  const [days, setDays] = useState("1");
+  const [first, setFirst] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(6, 0, 0, 0); return toLocalInput(d); });
+  const [perDay, setPerDay] = useState("7");
   const [saving, setSaving] = useState(false);
   const filled = useRef(false);
   // If deadlines are already set, start from them so changing one date is quick.
@@ -431,16 +435,16 @@ function DeadlinesDialog({ season, onClose, onSaved }: { season: number; onClose
     if (filled.current || !existing || !existing.get(1)) return;
     filled.current = true;
     setFirst(toLocalInput(new Date(existing.get(1)!)));
-    const second = existing.get(2);
-    if (second) setDays(String(Math.max(1, Math.round((new Date(second).getTime() - new Date(existing.get(1)!).getTime()) / 86400000))));
+    const sameDay = [...existing.values()].filter((v) => v === existing.get(1)).length;
+    if (sameDay > 0) setPerDay(String(sameDay));
   }, [existing]);
 
   async function save() {
-    const n = Number(days);
-    if (!first || Number.isNaN(new Date(first).getTime())) { toast.error("Choose when round 1 is due."); return; }
-    if (!Number.isInteger(n) || n < 1 || n > 30) { toast.error("Days between rounds must be from 1 to 30."); return; }
+    const n = Number(perDay);
+    if (!first || Number.isNaN(new Date(first).getTime())) { toast.error("Choose when the first deadline falls."); return; }
+    if (!Number.isInteger(n) || n < 1 || n > 30) { toast.error("Rounds per day must be from 1 to 30."); return; }
     setSaving(true);
-    const { data, error } = await supabase.rpc("admin_set_round_deadlines", { _season: season, _first_due: new Date(first).toISOString(), _days: n });
+    const { data, error } = await supabase.rpc("admin_set_round_deadlines", { _season: season, _first_due: new Date(first).toISOString(), _rounds_per_day: n });
     setSaving(false);
     if (error) { toast.error(friendlyError(error)); return; }
     const r = data as unknown as { rounds: number; last_due: string };
@@ -454,11 +458,12 @@ function DeadlinesDialog({ season, onClose, onSaved }: { season: number; onClose
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Season {season} round deadlines</DialogTitle>
-          <DialogDescription>Players see the date next to their fixtures. Each round is due the chosen number of days after the one before it. Saving again replaces the dates.</DialogDescription>
+          <DialogDescription>Each day's window runs from 6am to the next 6am. Players see the deadline next to their fixtures, and overdue matches are flagged here so you can forfeit them. Saving again replaces the dates.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="space-y-1.5"><Label>Round 1 is due</Label><Input type="datetime-local" value={first} onChange={(e) => setFirst(e.target.value)} className="h-11" /></div>
-          <div className="space-y-1.5"><Label>Days between rounds</Label><Input type="number" min={1} max={30} value={days} onChange={(e) => setDays(e.target.value)} className="h-11" /></div>
+          <div className="space-y-1.5"><Label>First deadline (set it to 6:00 am)</Label><Input type="datetime-local" value={first} onChange={(e) => setFirst(e.target.value)} className="h-11" /></div>
+          <div className="space-y-1.5"><Label>Rounds per day</Label><Input type="number" min={1} max={30} value={perDay} onChange={(e) => setPerDay(e.target.value)} className="h-11" />
+            <p className="text-xs text-muted-foreground">7 means rounds 1 to 7 are all due at the first deadline, and a 14-round league's rounds 8 to 14 are due 24 hours later.</p></div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
@@ -512,7 +517,7 @@ function ShotsDialog({ shots, title, onClose }: { shots: Shot[]; title: string; 
   );
 }
 
-function ResultRow({ f, locked = false, onSave, shots = [] }: { f: AFixture; locked?: boolean; shots?: Shot[]; onSave: (id: string, h: string, a: string, type?: "played" | "no_show", reason?: string) => Promise<boolean> }) {
+function ResultRow({ f, locked = false, onSave, shots = [], due }: { f: AFixture; locked?: boolean; shots?: Shot[]; due?: string | undefined; onSave: (id: string, h: string, a: string, type?: "played" | "no_show", reason?: string) => Promise<boolean> }) {
   const noShow = f.result_type === "no_show";
   const [h, setH] = useState(f.home_score?.toString() ?? "");
   const [a, setA] = useState(f.away_score?.toString() ?? "");
@@ -520,7 +525,21 @@ function ResultRow({ f, locked = false, onSave, shots = [] }: { f: AFixture; loc
   const [kind, setKind] = useState<"played" | "no_show">("played");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
+  const [forfeitOpen, setForfeitOpen] = useState(false);
+  const [absent, setAbsent] = useState<"home" | "away">("home");
+  const [note, setNote] = useState("");
+  const late = f.status === "scheduled" && !!due && isPast(due);
   const num = "h-9 w-16 text-center";
+
+  // A forfeit is a 3-0 win for the player who showed up, recorded with the reason so the history explains it.
+  async function confirmForfeit() {
+    const who = absent === "home" ? f.home_tag : f.away_tag;
+    const reasonText = `Forfeit: ${who} did not play by the deadline.${note.trim() ? ` ${note.trim()}` : ""}`;
+    setSaving(true);
+    const ok = await onSave(f.id, absent === "home" ? "0" : "3", absent === "home" ? "3" : "0", "played", reasonText);
+    setSaving(false);
+    if (ok) { setForfeitOpen(false); setNote(""); }
+  }
 
   function askOrSave() {
     if (h === "" || a === "") return toast.error("Enter both scores.");
@@ -545,17 +564,49 @@ function ResultRow({ f, locked = false, onSave, shots = [] }: { f: AFixture; loc
         <span>-</span>
         <Input className={num} type="number" min={0} max={99} value={a} onChange={(e) => setA(e.target.value)} disabled={locked || f.status === "disputed"} aria-label={`${f.away_tag} goals`} />
         <span className="min-w-[110px] flex-1 font-semibold">{f.away_tag}</span>
+        {late && <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-bold uppercase text-destructive">Overdue</span>}
         <ShotsButton shots={shots} title={`${f.home_tag} vs ${f.away_tag}`} />
         {locked ? null : f.status === "disputed" ? <StatusBadge status="pending" className="normal-case" /> : (
           <>
             <Button size="sm" variant={f.status === "confirmed" ? "outline" : "success"} onClick={askOrSave}>{f.status === "confirmed" ? "Correct" : "Save"}</Button>
+            {f.status === "scheduled" && <Button size="sm" variant={late ? "destructive" : "ghost"} onClick={() => { setAbsent("home"); setNote(""); setForfeitOpen(true); }}>Forfeit</Button>}
             <Button size="sm" variant="ghost" onClick={askNoShow}>No-show</Button>
           </>
         )}
       </div>
+      {f.status === "confirmed" && f.result_type !== "no_show" && f.result_reason?.startsWith("Forfeit") && (
+        <p className="mt-1 text-xs text-muted-foreground"><b className="text-foreground">Walkover 3-0.</b> {f.result_reason}</p>
+      )}
       {noShow && f.status === "confirmed" && (
         <p className="mt-1 text-xs text-muted-foreground"><b className="text-foreground">Double no-show · 0 points each.</b> Reason: {f.result_reason}</p>
       )}
+
+      <Dialog open={forfeitOpen} onOpenChange={setForfeitOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Forfeit: {f.home_tag} vs {f.away_tag}</DialogTitle>
+            <DialogDescription>Who did not play? The other player is awarded a 3-0 win. If neither player turned up, cancel and use No-show instead.</DialogDescription>
+          </DialogHeader>
+          <RadioGroup value={absent} onValueChange={(v) => setAbsent(v as "home" | "away")} className="space-y-3">
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3">
+              <RadioGroupItem value="home" className="mt-1" />
+              <span><b>{f.home_tag}</b> did not play<br /><span className="text-sm text-muted-foreground">{f.away_tag} wins 0-3.</span></span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3">
+              <RadioGroupItem value="away" className="mt-1" />
+              <span><b>{f.away_tag}</b> did not play<br /><span className="text-sm text-muted-foreground">{f.home_tag} wins 3-0.</span></span>
+            </label>
+          </RadioGroup>
+          <div className="space-y-1.5">
+            <Label>Note (optional)</Label>
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. Opponent waited 15 minutes and sent chat screenshots" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setForfeitOpen(false)} disabled={saving}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmForfeit} disabled={saving}>{saving ? "Saving…" : "Record forfeit"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

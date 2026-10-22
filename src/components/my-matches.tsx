@@ -93,6 +93,7 @@ function NextMatch({ f, due, creds, me }: { f: MyFixture; due: string | undefine
           {late ? "Was due" : "Play by"} {formatDue(due)}
         </p>
       )}
+      {due && <p className="mt-2 text-xs text-muted-foreground">{late ? "The deadline has passed. If you did not play, the organiser can record this as a forfeit (3-0 to your opponent)." : "Matches are not postponed. If it is not played by the deadline, the player who did not play forfeits 3-0."}</p>}
       <div className="mt-3"><OpponentWhatsApp creds={creds} fixture={f} me={me} due={due} /></div>
       <MatchScreenshotUpload creds={creds} fixture={f} />
     </div>

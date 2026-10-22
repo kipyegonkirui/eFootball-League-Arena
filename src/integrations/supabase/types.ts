@@ -385,7 +385,7 @@ export type Database = {
       admin_list_trial_codes: { Args: never; Returns: Json }
       admin_revoke_trial_code: { Args: { _code: string }; Returns: Json }
       admin_remove_player: { Args: { _reason: string; _registration_id: string }; Returns: Json }
-      admin_set_round_deadlines: { Args: { _days: number; _first_due: string; _season: number }; Returns: Json }
+      admin_set_round_deadlines: { Args: { _first_due: string; _rounds_per_day: number; _season: number }; Returns: Json }
       get_round_deadlines: { Args: { _season: number }; Returns: Json }
       get_next_match_contact: { Args: { _phone: string; _reference: string }; Returns: Json }
       submit_match_screenshot: { Args: { _fixture_id: string; _path: string; _phone: string; _reference: string }; Returns: Json }
