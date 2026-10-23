@@ -39,7 +39,14 @@ export type PublicTournament = {
 
 /** Fixed M-Pesa Send Money recipient. */
 /** Public contact for rules/privacy questions. Add your email or WhatsApp number here. */
-export const ORGANISER_CONTACT = "";
+export const ORGANISER_CONTACT = "WhatsApp 0707 266 509 or 0758 399 598";
+
+/** Organisers' WhatsApp numbers shown on the "Chat with organiser" button. `intl` is the number without + or spaces. */
+export const ORGANISER_WHATSAPP = [
+  { label: "Organiser 1", display: "0707 266 509", intl: "254707266509" },
+  { label: "Organiser 2", display: "0758 399 598", intl: "254758399598" },
+] as const;
+export const whatsappLink = (intl: string, text: string) => `https://wa.me/${intl}?text=${encodeURIComponent(text)}`;
 
 export const MPESA_SEND_NUMBER = "0707266509";
 export const MPESA_SEND_NUMBER_INTL = "254707266509";

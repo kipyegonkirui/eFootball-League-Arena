@@ -15,6 +15,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { DialogProvider } from "@/components/dialogs";
 import { SiteHeader, SiteFooter } from "@/components/site";
+import { ContactOrganiser } from "@/components/contact-organiser";
 
 function NotFoundComponent() {
   return (
@@ -115,6 +116,7 @@ function RootComponent() {
           <Outlet />
         </div>
         <SiteFooter />
+        <ContactOrganiser />
       </div>
       <Toaster richColors position="top-center" />
       </DialogProvider>

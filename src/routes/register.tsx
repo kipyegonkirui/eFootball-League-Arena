@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageShell, StatusBadge } from "@/components/site";
 import { saveMine } from "@/lib/saved";
-import { GAME_MODES, PLATFORMS, formatKes, friendlyError, isFull, MPESA_SEND_NUMBER, publicTournamentQuery } from "@/lib/tournament";
+import { GAME_MODES, ORGANISER_WHATSAPP, PLATFORMS, formatKes, friendlyError, isFull, MPESA_SEND_NUMBER, publicTournamentQuery, whatsappLink } from "@/lib/tournament";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -151,6 +151,7 @@ function RegisterPage() {
             <li>Copy the 10-character code from the confirmation SMS into the form.</li>
           </ol>
           <p className="text-xs text-muted-foreground">Your slot is confirmed only after an organiser checks the payment. We never see or ask for your PIN.</p>
+          <p className="text-xs text-muted-foreground">Stuck or have a question? WhatsApp an organiser: {ORGANISER_WHATSAPP.map((o, i) => <span key={o.intl}>{i > 0 && " · "}<a href={whatsappLink(o.intl, "Hi, I need help registering for the eFootball Arena Kenya league.")} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline">{o.display}</a></span>)}</p>
           <p className="rounded-lg border border-border p-3 text-xs text-muted-foreground"><b className="text-foreground">Have a free trial code?</b> Skip the payment and paste the code in the transaction code box. You are confirmed straight away.</p>
         </aside>
       </div>
