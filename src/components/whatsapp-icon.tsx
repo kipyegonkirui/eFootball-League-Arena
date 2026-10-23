@@ -1,10 +1,7 @@
-import { MessageCircle } from "lucide-react";
-
 /**
- * The icon used on every WhatsApp button. It is one file on purpose: to use the official WhatsApp artwork,
- * put the SVG in /public (for example /public/whatsapp.svg) and replace the body with
- *   <img src="/whatsapp.svg" alt="" aria-hidden="true" className={className} />
+ * The official WhatsApp glyph (white), supplied by WhatsApp's Brand Resource Center and used unmodified.
+ * Use it on a WhatsApp-green background (#25D366) or another solid colour with enough contrast.
  */
 export function WhatsAppIcon({ className }: { className?: string }) {
-  return <MessageCircle className={className} aria-hidden="true" />;
+  return <img src="/whatsapp-glyph-white.svg" alt="" aria-hidden="true" className={className} />;
 }

@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { CalendarClock, MessageCircle } from "lucide-react";
+import { CalendarClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { clearMine, loadMine, saveMine, type Saved } from "@/lib/saved";
 import { MatchScreenshotUpload } from "@/components/match-screenshot";
+import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { formatDue, groupLetter, isPast, nextFixture, type MyFixture, type MyRegistration } from "@/lib/league";
 
 async function lookup(ref: string, phone: string): Promise<MyRegistration | null> {
@@ -124,9 +125,9 @@ export function OpponentWhatsApp({ creds, fixture, me, due }: { creds: Saved; fi
   if (digits.length < 9) return null;
   const text = `Hi ${c.opponent}, it's ${me} from eFootball Arena Kenya. Our Round ${c.round} match ${due ? `is due ${formatDue(due)}` : "is next"}. When are you free to play?`;
   return (
-    <Button asChild variant="success" size="sm">
+    <Button asChild size="sm" className="bg-[#25D366] font-semibold text-black hover:bg-[#25D366]/90">
       <a href={`https://wa.me/${digits}?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer">
-        <MessageCircle className="h-4 w-4" /> Message {c.opponent} on WhatsApp
+        <WhatsAppIcon className="h-4 w-4" /> Message {c.opponent} on WhatsApp
       </a>
     </Button>
   );
