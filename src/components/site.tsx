@@ -1,7 +1,7 @@
 import bannerImg from "@/assets/stadium-empty.jpg";
 import { Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Menu, X, Trophy } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import type { PublicGroup } from "@/lib/tournament";
@@ -38,9 +38,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-lg">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-brand text-primary-foreground">
-            <Trophy className="h-5 w-5" />
-          </span>
+          <img src="/logo-mark.png" alt="" width={40} height={40} className="h-10 w-10 rounded-lg object-cover" />
           <span className="font-display text-xl font-bold uppercase leading-none tracking-wide">
             eFootball <span className="text-gradient-brand">Arena</span>
             <span className="block text-[10px] font-semibold tracking-[0.3em] text-muted-foreground">KENYA</span>
