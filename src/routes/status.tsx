@@ -10,7 +10,7 @@ import { PageShell, StatusBadge } from "@/components/site";
 import { useDialogs } from "@/components/dialogs";
 import { friendlyError } from "@/lib/tournament";
 import { clearMine, loadMine, saveMine } from "@/lib/saved";
-import { formatDue, isPast, nextFixture, roundDeadlinesQuery, type MyRegistration } from "@/lib/league";
+import { formatDue, isPast, roundDeadlinesQuery, type MyRegistration } from "@/lib/league";
 import { OpponentWhatsApp } from "@/components/my-matches";
 import { MatchScreenshotUpload } from "@/components/match-screenshot";
 
@@ -110,7 +110,7 @@ function StatusPage() {
           <p className="border-b border-border px-4 py-3 text-2xl font-bold uppercase">My fixtures</p>
           <ul className="divide-y divide-border/60">
             {r.fixtures.map((f) => {
-              const isNext = r.status === "verified" && creds && nextFixture(r.fixtures)?.id === f.id;
+              const canAct = r.status === "verified" && !!creds && f.status === "scheduled";
               const mine = f.is_home ? f.home_score : f.away_score;
               const theirs = f.is_home ? f.away_score : f.home_score;
               return (
@@ -120,7 +120,7 @@ function StatusPage() {
                   <span className="font-display text-lg font-bold">{f.status === "confirmed" ? `${mine} - ${theirs}` : f.status === "disputed" ? "Disputed" : "To play"}</span>
                   {f.status === "confirmed" && <Button size="sm" variant="outline" onClick={() => dispute(f.id)}>Dispute</Button>}
                   {f.status === "disputed" && f.my_dispute_open && <span className="text-xs text-muted-foreground">Under review</span>}
-                  {isNext && creds && <span className="w-full"><OpponentWhatsApp creds={creds} fixture={f} me={r.gamer_tag} due={deadlines?.get(f.round)} /><MatchScreenshotUpload creds={creds} fixture={f} /></span>}
+                  {canAct && creds && <span className="w-full"><OpponentWhatsApp creds={creds} fixture={f} me={r.gamer_tag} due={deadlines?.get(f.round)} /><MatchScreenshotUpload creds={creds} fixture={f} /></span>}
                   {f.status === "scheduled" && deadlines?.get(f.round) && <span className={"w-full pl-[76px] text-xs " + (isPast(deadlines.get(f.round)!) ? "text-destructive" : "text-muted-foreground")}>Due {formatDue(deadlines.get(f.round)!)}</span>}
                 </li>
               );

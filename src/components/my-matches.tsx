@@ -46,6 +46,7 @@ export function MyMatches({ seasonNumber, deadlines }: { seasonNumber: number; d
   if (r.season_number != null && r.season_number !== seasonNumber) return null; // their registration is for another season
 
   const next = nextFixture(r.fixtures);
+  const others = r.fixtures.filter((f) => f.status === "scheduled" && f.id !== next?.id).sort((a, b) => a.round - b.round);
   const played = r.fixtures.filter((f) => f.status === "confirmed").length;
 
   return (
@@ -68,6 +69,15 @@ export function MyMatches({ seasonNumber, deadlines }: { seasonNumber: number; d
       {r.status === "verified" && r.fixtures.length > 0 && (
         <>
           {next ? <NextMatch f={next} due={deadlines?.get(next.round)} creds={saved} me={r.gamer_tag} /> : <p className="mt-3 rounded-lg bg-primary/10 p-3 text-sm font-semibold text-primary">All your matches are played.</p>}
+          {others.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm font-semibold">Other matches to play</p>
+              <p className="text-xs text-muted-foreground">You can play these in any order. If your next opponent is not available, play whoever is ready.</p>
+              <ul className="mt-2 space-y-3">
+                {others.map((f) => <OtherMatch key={f.id} f={f} due={deadlines?.get(f.round)} creds={saved} me={r.gamer_tag} />)}
+              </ul>
+            </div>
+          )}
           <details className="mt-4 group">
             <summary className="cursor-pointer select-none text-sm font-semibold text-primary">All my fixtures ({played} of {r.fixtures.length} played)</summary>
             <ul className="mt-2 divide-y divide-border/60 rounded-lg border border-border">
@@ -101,20 +111,36 @@ function NextMatch({ f, due, creds, me }: { f: MyFixture; due: string | undefine
   );
 }
 
+function OtherMatch({ f, due, creds, me }: { f: MyFixture; due: string | undefined; creds: Saved; me: string }) {
+  const late = due ? isPast(due) : false;
+  return (
+    <li className="rounded-xl border border-border p-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Round {f.round}</p>
+      <p className="font-display text-lg font-bold">vs {f.opponent}{f.opponent_team && <span className="ml-2 text-sm font-normal text-muted-foreground">{f.opponent_team}</span>}</p>
+      {due && <p className={cn("mt-1 inline-flex items-center gap-1.5 text-xs font-semibold", late ? "text-destructive" : "text-muted-foreground")}><CalendarClock className="h-3.5 w-3.5" />{late ? "Was due" : "Play by"} {formatDue(due)}</p>}
+      <div className="mt-2"><OpponentWhatsApp creds={creds} fixture={f} me={me} due={due} /></div>
+      <MatchScreenshotUpload creds={creds} fixture={f} />
+    </li>
+  );
+}
+
 type Contact = { fixture_id: string; round: number; opponent: string; phone: string };
 
 /**
- * WhatsApp button to the opponent of the player's NEXT match only. The number comes from the server, which releases it
- * only for the caller's next scheduled match after checking the caller's own reference and phone. Renders nothing
- * if there is no contact (no next match, or the feature isn't installed yet).
+ * WhatsApp button to the opponent of one of the player's matches still to play. The number comes from the server, which releases it
+ * only for the caller's own scheduled match after checking the caller's own reference and phone. Renders nothing
+ * if there is no contact (match already played, or the feature isn't installed yet).
  */
 export function OpponentWhatsApp({ creds, fixture, me, due }: { creds: Saved; fixture: MyFixture; me: string; due: string | undefined }) {
   const q = useQuery({
     queryKey: ["public-league", "contact", creds.ref, creds.phone, fixture.id],
     queryFn: async (): Promise<Contact | null> => {
-      const { data, error } = await supabase.rpc("get_next_match_contact", { _reference: creds.ref, _phone: creds.phone });
-      if (error) throw new Error(error.message);
-      return (data as unknown as Contact | null) ?? null;
+      const res = await supabase.rpc("get_match_contact", { _reference: creds.ref, _phone: creds.phone, _fixture_id: fixture.id });
+      if (!res.error) return (res.data as unknown as Contact | null) ?? null;
+      // Older database (migration 0016 not applied yet): fall back to the next-match-only contact.
+      const old = await supabase.rpc("get_next_match_contact", { _reference: creds.ref, _phone: creds.phone });
+      if (old.error) throw new Error(old.error.message);
+      return (old.data as unknown as Contact | null) ?? null;
     },
     retry: false,
     staleTime: 60_000,

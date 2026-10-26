@@ -44,7 +44,7 @@ function RulesPage() {
           <ul>
             <li>Each day's play window runs from <b>6:00 am to 6:00 am the next morning</b> (Kenya time). The organiser sets the deadline for every round and shows it next to your fixtures on the site.</li>
             <li>The organiser can release several rounds in the same window, for example <b>about 3 rounds a day</b>, so a 7-round single league finishes in around <b>2 to 3 days</b> (a 14-round double league takes longer). Check the deadline shown on your next match.</li>
-            <li>Agree a kick-off time with your opponent <b>as soon as the round opens</b>. Offer at least two times that suit you, and use the WhatsApp button on your next match.</li>
+            <li>Agree a kick-off time with your opponent <b>as soon as the round opens</b>. Offer at least two times that suit you, and use the WhatsApp button on your match. It is on every match you still have to play, so if your next opponent is not available you can play any other opponent who is ready. Upload a screenshot for the match you played.</li>
             <li><b>Matches are not postponed.</b> A match not played by its deadline is a forfeit: the player who did not play loses <b>3-0</b>. If you were ready and your opponent was not, upload your screenshots or chat proof so the organiser can award you the win.</li>
             <li>If neither player played, the match is recorded 0-0 with 0 points for both. See section 3.</li>
             <li>The organiser may extend a deadline only in writing, and only for a genuine problem that you reported <b>before</b> the deadline.</li>
